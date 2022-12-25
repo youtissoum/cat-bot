@@ -130,6 +130,7 @@ dmypy.json
 
 # don't include database in saving
 db.json
+backup
 
 # temporary to not add the folder where I have the old bot code
 old
