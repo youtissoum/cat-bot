@@ -56,6 +56,29 @@ def register_guild(guild_id: int):
         }
         save_db()
 
+def give_cat(guild_id: int, member_id: int, cat_type: str, amount=1, overwrite=False):
+    if overwrite:
+        db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] = amount
+    else:
+        db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] += amount
+    save_db()
+    return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
+
+def remove_cat(guild_id: int, member_id: int, cat_type: str, amount=1):
+    db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] -= amount
+    save_db()
+    return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
+
+def get_cats(guild_id: int, member_id: int):
+    return db[str(guild_id)]['users'][str(member_id)]['cats']
+
+def has_ach(guild_id: int, member_id: int, ach: str):
+    return db[str(guild_id)]['users'][str(member_id)]['achs'][str(ach)]
+
+def give_ach(guild_int: int, member_id: int, ach: str, remove=False):
+    remove = not remove
+    db[str(guild_int)]['users'][str(member_id)]['achs'][str(ach)] = remove
+
 @tasks.loop(seconds = 10)
 async def automatic_database_save():
     save_db()
@@ -74,6 +97,12 @@ async def on_ready():
             register_member(guild.id, user.id)
     automatic_database_save.start()
     print(f"bot has been started in {time.time()-time_before_start:.2f}s")
+
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    register_guild(guild.id)
+    for member in guild.members:
+        register_member(guild.id, member.id)
 
 @bot.slash_command(description="Send Help")
 async def help(message: discord.Interaction):
