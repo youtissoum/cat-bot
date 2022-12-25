@@ -56,7 +56,7 @@ def register_guild(guild_id: int):
         }
         save_db()
 
-def give_cat(guild_id: int, member_id: int, cat_type: str, amount=1, overwrite=False):
+async def give_cat(guild_id: int, member_id: int, cat_type: str, amount=1, overwrite=False):
     if overwrite:
         db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] = amount
     else:
@@ -64,20 +64,25 @@ def give_cat(guild_id: int, member_id: int, cat_type: str, amount=1, overwrite=F
     save_db()
     return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
 
-def remove_cat(guild_id: int, member_id: int, cat_type: str, amount=1):
+async def remove_cat(guild_id: int, member_id: int, cat_type: str, amount=1):
     db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] -= amount
     save_db()
     return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
 
-def get_cats(guild_id: int, member_id: int):
+async def get_cats(guild_id: int, member_id: int):
     return db[str(guild_id)]['users'][str(member_id)]['cats']
 
-def has_ach(guild_id: int, member_id: int, ach: str):
+async def has_ach(guild_id: int, member_id: int, ach: str):
     return db[str(guild_id)]['users'][str(member_id)]['achs'][str(ach)]
 
-def give_ach(guild_int: int, member_id: int, ach: str, remove=False):
+async def give_ach(guild_int: int, member_id: int, channel: discord.TextChannel, ach: str, remove=False, send_embed=True):
     remove = not remove
     db[str(guild_int)]['users'][str(member_id)]['achs'][str(ach)] = remove
+    if remove and send_embed:
+        ach_data = ach_list[ach]
+        embed = discord.Embed(title=ach_data["title"], description=ach_data["description"], color=0x007F0E).set_author(name="Achievement get!", icon_url="https://pomf2.lain.la/f/hbxyiv9l.png")
+        await channel.send(embed=embed)
+    save_db()
 
 @tasks.loop(seconds = 10)
 async def automatic_database_save():
@@ -153,6 +158,14 @@ async def tiktok(message: discord.Interaction, text: str):
 		f.write(base64.b64decode(ba))
 	file = discord.File("result.mp3", filename="result.mp3")
 	await message.response.send_message(file=file)
+
+@bot.slash_command(description="Get Daily cats")
+async def daily(message: discord.Interaction):
+	await message.response.send_message("there is no daily cats why did you even try this")
+	if not has_ach(message.guild.id, message.user.id, "daily"):
+		ach_data = give_ach(message.guild.id, message.user.id, "daily")
+		embed = discord.Embed(title=ach_data["title"], description=ach_data["description"], color=0x007F0E).set_author(name="Achievement get!", icon_url="https://pomf2.lain.la/f/hbxyiv9l.png")
+		await message.channel.send(embed=embed)
 
 @bot.slash_command(description="Pong")
 async def ping(message: discord.Interaction):
