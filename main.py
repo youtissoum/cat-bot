@@ -1,6 +1,7 @@
 import nextcord as discord
 from nextcord.ext import commands, tasks
 import os, sys, time, json, base64, requests
+from typing import Optional
 
 time_before_start = time.time()
 
@@ -57,20 +58,54 @@ def register_guild(guild_id: int):
 
 async def give_cat(guild_id: int, member_id: int, cat_type: str, amount=1, overwrite=False):
     if overwrite:
-        db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] = amount
+        db['guilds'][str(guild_id)]['users'][str(member_id)]['cats'][cat_type] = amount
     else:
-        db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] += amount
-    return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
+        db['guilds'][str(guild_id)]['users'][str(member_id)]['cats'][cat_type] += amount
+    return db['guilds'][str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
 
 async def remove_cat(guild_id: int, member_id: int, cat_type: str, amount=1):
-    db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] -= amount
-    return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
+    db['guilds'][str(guild_id)]['users'][str(member_id)]['cats'][cat_type] -= amount
+    return db['guilds'][str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
 
-async def get_cats(guild_id: int, member_id: int):
-    return db[str(guild_id)]['users'][str(member_id)]['cats']
+async def get_cats(guild_id: int, member_id: int) -> dict[str, int]:
+    return db['guilds'][str(guild_id)]['users'][str(member_id)]['cats']
 
 async def has_ach(guild_id: int, member_id: int, ach: str):
-    return db[str(guild_id)]['users'][str(member_id)]['achs'][str(ach)]
+    return db['guilds'][str(guild_id)]['users'][str(member_id)]['achs'][str(ach)]
+
+async def get_achs(guild_id: int, member_id: int) -> dict[str, bool]:
+    return db['guilds'][str(guild_id)]['users'][str(member_id)]['achs']
+
+async def get_slowest(guild_id: int, member_id: int) -> int|None:
+    return db['guilds'][str(guild_id)]['users'][str(member_id)]['slowest']
+
+async def set_slowest(guild_id: int, member_id: int, value: int):
+    db['guilds'][str(guild_id)]['users'][str(member_id)]['slowest'] = value
+
+async def get_fastest(guild_id: int, member_id: int) -> int|None:
+    return db['guilds'][str(guild_id)]['users'][str(member_id)]['fastest']
+
+async def set_fastest(guild_id: int, member_id: int, value: int):
+    db['guilds'][str(guild_id)]['users'][str(member_id)]['fastest'] = value
+
+async def get_ach_text(guild_id: int, member_id: int):
+    user_achs = await get_achs(guild_id, member_id)
+    
+    non_hidden = 0
+    max_non_hidden = 0
+    hidden = 0
+    
+    for ach_name, has_got in user_achs.items():
+        if ach_list[ach_name]['is_hidden']:
+            if has_got: hidden += 1
+        else:
+            max_non_hidden += 1
+            if has_got: non_hidden += 1
+    
+    if hidden >= 1:
+        return f"{non_hidden}/{max_non_hidden} + {hidden}"
+    else:
+        return f"{non_hidden}/{max_non_hidden}"
 
 async def give_ach(guild_int: int, member_id: int, channel: discord.TextChannel, ach: str, remove=False, send_embed=True):
     remove = not remove
@@ -159,6 +194,59 @@ async def tiktok(message: discord.Interaction, text: str):
 async def daily(message: discord.Interaction):
 	await message.response.send_message("there is no daily cats why did you even try this")
 	await give_ach(message.guild_id, message.user.id, message.channel, "daily")
+
+@bot.slash_command(description="View your inventory")
+async def inv(message: discord.Interaction, user: Optional[discord.Member] = discord.SlashOption(required=False)):
+    if user is None:
+        self_see = True
+        user = message.user
+    else:
+        self_see = False
+    await message.response.defer()
+    
+    ach_text = await get_ach_text(message.guild_id, user.id)
+    
+    catch_time = await get_fastest(message.guild_id, user.id)
+    slow_time = await get_slowest(message.guild_id, user.id)
+    
+    if self_see:
+        your = "Your"
+    else:
+        your = user.name + "'s"
+    
+    embedVar = discord.Embed(
+		title=your + " cats:", description=f"{your} fastest catch is: {catch_time // 1000} s\nand {your} slowest catch is: {slow_time // 1000} h\nAchievements unlocked: {ach_text}", color=0x6E593C
+	)
+    
+    user_cats: dict[str, int] = {}
+    
+    db_cats = await get_cats(message.guild_id, user.id)
+    
+    for cat_name, cat_amount in db_cats.items():
+        if cat_amount >= 0:
+            user_cats[cat_name] = cat_amount
+
+    if len(user_cats) >= 0:
+        pass
+    else:
+        embedVar.add_field(name="None", value="u hav no cats :cat_sad:", inline=True)
+
+    await message.followup.send(embed=embedVar)
+    
+    if self_see and len(db_cats) == len(cats):
+        await give_ach(message.guild_id, user.id, message.channel, "collecter")
+    if self_see and catch_time <= 5000:
+        await give_ach(message.guild_id, user.id, message.channel, "fast_catcher")
+    if self_see and slow_time >= 3600000:
+        await give_ach(message.guild_id, user.id, message.channel, "slow_catcher")
+
+@bot.slash_command(description="View list of achievements names", default_member_permissions=8)
+async def achlist(message: discord.Interaction):
+    stringify = ""
+    for k,v in ach_list.items():
+        stringify = stringify + k + " - " + v["title"] + "\n"
+    embed = discord.Embed(title="Ach IDs", description=stringify, color=0x6E593C)
+    await message.response.send_message(embed=embed)
 
 @bot.slash_command(description="Pong")
 async def ping(message: discord.Interaction):
