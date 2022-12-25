@@ -132,6 +132,9 @@ dmypy.json
 db.json
 backup
 
+#don't include tiktok api result
+result.mp3
+
 # temporary to not add the folder where I have the old bot code
 old
 old/*
