@@ -28,7 +28,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="idk how this works but you need to have spaces in it or it may crash", help_command=None, intents=intents)
 
 def save_db():
-    with open("backup", "r") as f:
+    with open("backup", "w") as f:
         f.write(str(db))
     with open("db.json", 'w') as f:
         f.write(json.dumps(db))
