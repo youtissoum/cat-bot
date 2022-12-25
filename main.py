@@ -33,6 +33,13 @@ def save_db():
     with open("db.json", 'w') as f:
         f.write(json.dumps(db))
 
+def register_guild(guild_id: int):
+    if db['guilds'].get(guild_id) is None:
+        db['guilds'][guild_id] = {
+            "users": {}
+        }
+    save_db()
+
 @tasks.loop(seconds = 10)
 async def automatic_database_save():
     save_db()
