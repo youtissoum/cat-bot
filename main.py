@@ -18,10 +18,10 @@ with open("db.json", "r") as f:
     db = json.loads(f.read())
 
 with open("aches.json", 'r') as f:
-    ach_list = json.loads(f.read())
+    ach_list: dict[str, dict[str, str|bool]] = json.loads(f.read())
 
 with open("cats.json", "r") as f:
-    cats = json.loads(f.read())
+    cats: dict[str, int] = json.loads(f.read())
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -33,10 +33,25 @@ def save_db():
     with open("db.json", 'w') as f:
         f.write(json.dumps(db))
 
+def register_member(guild_id: int, user_id: int):
+    if db['guilds'][str(guild_id)].get(str(user_id)) is None:
+        user_data = {
+            "cats": {},
+            "achs": {},
+            "fastest": None,
+            "slowest": None
+        }
+        for cat in cats.keys():
+            user_data["cats"][cat] = 0
+        for ach in ach_list.keys():
+            user_data["achs"][ach] = False
+        db['guilds'][str(guild_id)][str(user_id)] = user_data
+
 def register_guild(guild_id: int):
-    if db['guilds'].get(guild_id) is None:
-        db['guilds'][guild_id] = {
-            "users": {}
+    if db['guilds'].get(str(guild_id)) is None:
+        db['guilds'][str(guild_id)] = {
+            "users": {},
+            "channel": None
         }
     save_db()
 
@@ -52,6 +67,8 @@ async def on_ready():
             name=f"/help | Providing life support for {len(bot.guilds)} servers"
         )
     )
+    for guild in bot.guilds:
+        register_guild(guild.id)
     automatic_database_save.start()
     print(f"bot has been started in {time.time()-time_before_start:.2f}s")
 
