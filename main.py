@@ -45,7 +45,7 @@ def register_member(guild_id: int, user_id: int):
             user_data["cats"][cat] = 0
         for ach in ach_list.keys():
             user_data["achs"][ach] = False
-        db['guilds'][str(guild_id)][str(user_id)] = user_data
+        db['guilds'][str(guild_id)]['users'][str(user_id)] = user_data
         save_db()
 
 def register_guild(guild_id: int):
@@ -70,6 +70,8 @@ async def on_ready():
     )
     for guild in bot.guilds:
         register_guild(guild.id)
+        for user in guild.members:
+            register_member(guild.id, user.id)
     automatic_database_save.start()
     print(f"bot has been started in {time.time()-time_before_start:.2f}s")
 
