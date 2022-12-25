@@ -46,6 +46,7 @@ def register_member(guild_id: int, user_id: int):
         for ach in ach_list.keys():
             user_data["achs"][ach] = False
         db['guilds'][str(guild_id)][str(user_id)] = user_data
+        save_db()
 
 def register_guild(guild_id: int):
     if db['guilds'].get(str(guild_id)) is None:
@@ -53,7 +54,7 @@ def register_guild(guild_id: int):
             "users": {},
             "channel": None
         }
-    save_db()
+        save_db()
 
 @tasks.loop(seconds = 10)
 async def automatic_database_save():
