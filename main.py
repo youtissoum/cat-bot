@@ -25,6 +25,7 @@ with open("cats.json", "r") as f:
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 bot = commands.Bot(command_prefix="idk how this works but you need to have spaces in it or it may crash", help_command=None, intents=intents)
 
 def save_db():
@@ -34,7 +35,7 @@ def save_db():
         f.write(json.dumps(db))
 
 def register_member(guild_id: int, user_id: int):
-    if db['guilds'][str(guild_id)].get(str(user_id)) is None:
+    if db['guilds'][str(guild_id)]['users'].get(str(user_id)) is None:
         user_data = {
             "cats": {},
             "achs": {},
@@ -46,7 +47,6 @@ def register_member(guild_id: int, user_id: int):
         for ach in ach_list.keys():
             user_data["achs"][ach] = False
         db['guilds'][str(guild_id)]['users'][str(user_id)] = user_data
-        save_db()
 
 def register_guild(guild_id: int):
     if db['guilds'].get(str(guild_id)) is None:
@@ -54,19 +54,16 @@ def register_guild(guild_id: int):
             "users": {},
             "channel": None
         }
-        save_db()
 
 async def give_cat(guild_id: int, member_id: int, cat_type: str, amount=1, overwrite=False):
     if overwrite:
         db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] = amount
     else:
         db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] += amount
-    save_db()
     return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
 
 async def remove_cat(guild_id: int, member_id: int, cat_type: str, amount=1):
     db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type] -= amount
-    save_db()
     return db[str(guild_id)]['users'][str(member_id)]['cats'][cat_type]
 
 async def get_cats(guild_id: int, member_id: int):
@@ -77,12 +74,11 @@ async def has_ach(guild_id: int, member_id: int, ach: str):
 
 async def give_ach(guild_int: int, member_id: int, channel: discord.TextChannel, ach: str, remove=False, send_embed=True):
     remove = not remove
-    db[str(guild_int)]['users'][str(member_id)]['achs'][str(ach)] = remove
+    db['guilds'][str(guild_int)]['users'][str(member_id)]['achs'][str(ach)] = remove
     if remove and send_embed:
         ach_data = ach_list[ach]
         embed = discord.Embed(title=ach_data["title"], description=ach_data["description"], color=0x007F0E).set_author(name="Achievement get!", icon_url="https://pomf2.lain.la/f/hbxyiv9l.png")
         await channel.send(embed=embed)
-    save_db()
 
 @tasks.loop(seconds = 10)
 async def automatic_database_save():
@@ -162,10 +158,7 @@ async def tiktok(message: discord.Interaction, text: str):
 @bot.slash_command(description="Get Daily cats")
 async def daily(message: discord.Interaction):
 	await message.response.send_message("there is no daily cats why did you even try this")
-	if not has_ach(message.guild.id, message.user.id, "daily"):
-		ach_data = give_ach(message.guild.id, message.user.id, "daily")
-		embed = discord.Embed(title=ach_data["title"], description=ach_data["description"], color=0x007F0E).set_author(name="Achievement get!", icon_url="https://pomf2.lain.la/f/hbxyiv9l.png")
-		await message.channel.send(embed=embed)
+	await give_ach(message.guild_id, message.user.id, message.channel, "daily")
 
 @bot.slash_command(description="Pong")
 async def ping(message: discord.Interaction):
