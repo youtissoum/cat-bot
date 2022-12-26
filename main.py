@@ -109,8 +109,9 @@ async def get_ach_text(guild_id: int, member_id: int):
 
 async def give_ach(guild_int: int, member_id: int, channel: discord.TextChannel, ach: str, remove=False, send_embed=True):
     remove = not remove
+    before = db['guilds'][str(guild_int)]['users'][str(member_id)]['achs'].get(str(ach), False)
     db['guilds'][str(guild_int)]['users'][str(member_id)]['achs'][str(ach)] = remove
-    if remove and send_embed:
+    if remove and send_embed and before != remove:
         ach_data = ach_list[ach]
         embed = discord.Embed(title=ach_data["title"], description=ach_data["description"], color=0x007F0E).set_author(name="Achievement get!", icon_url="https://pomf2.lain.la/f/hbxyiv9l.png")
         await channel.send(embed=embed)
@@ -214,26 +215,34 @@ async def inv(message: discord.Interaction, user: Optional[discord.Member] = dis
     else:
         your = user.name + "'s"
     
+    if catch_time is None: catch_time = 9999999999000
+    
+    if slow_time is None: slow_time = 0
+    
     embedVar = discord.Embed(
-		title=your + " cats:", description=f"{your} fastest catch is: {catch_time // 1000} s\nand {your} slowest catch is: {slow_time // 1000} h\nAchievements unlocked: {ach_text}", color=0x6E593C
+		title=your + " cats:", description=f"{your} fastest catch is: {catch_time // 1000} s\nand {your} slowest catch is: {slow_time // 1000} s\nAchievements unlocked: {ach_text}", color=0x6E593C
 	)
     
-    user_cats: dict[str, int] = {}
+    default_cats: dict[str, int] = {}
     
     db_cats = await get_cats(message.guild_id, user.id)
     
     for cat_name, cat_amount in db_cats.items():
-        if cat_amount >= 0:
-            user_cats[cat_name] = cat_amount
+        if cat_amount > 0:
+            default_cats[cat_name] = cat_amount
 
-    if len(user_cats) >= 0:
-        pass
+    user_cats = default_cats
+
+    if len(user_cats) > 0:
+        for cat_name, cat_amount in user_cats.items():
+            # icon = discord.utils.get(bot.get_guild(GUILD_ID).emojis, name=cat_name.lower()+"cat")
+            embedVar.add_field(name=f"a {cat_name}", value=cat_amount, inline=True)
     else:
         embedVar.add_field(name="None", value="u hav no cats :cat_sad:", inline=True)
 
     await message.followup.send(embed=embedVar)
     
-    if self_see and len(db_cats) == len(cats):
+    if self_see and len(default_cats) == len(cats):
         await give_ach(message.guild_id, user.id, message.channel, "collecter")
     if self_see and catch_time <= 5000:
         await give_ach(message.guild_id, user.id, message.channel, "fast_catcher")
@@ -252,6 +261,23 @@ async def achlist(message: discord.Interaction):
 async def ping(message: discord.Interaction):
 	await message.response.send_message(f"cat has brain delay of {round(bot.latency * 1000)} ms " + str(discord.utils.get(bot.get_guild(GUILD_ID).emojis, name="staring_cat")))
 
+@bot.slash_command(description="give cats now")
+async def donate(message: discord.Interaction, person: discord.Member, cat_type: str = discord.SlashOption(choices=cats.values()), amount: Optional[int] = discord.SlashOption(required=False)):
+    if amount is None: amount = 1
+    if cat_type not in cats.values(): return
+    person_id = person.id
+    if get_cats(message.guild_id, message.user.id)[cat_type] >= amount and amount > 0:
+        await remove_cat(message.guild_id, message.user.id, cat_type, amount)
+        await give_cat(message.guild_id, person_id, cat_type, amount)
+        embed = discord.Embed(title="Success!", description=f"Successfully transfered {amount} {cat_type} cats from <@{message.user.id}> to <@{person_id}>!", color=0x6E593C)
+        await message.response.send_message(embed=embed)
+        await give_ach(message.guild_id, message.user.id, message.channel, "donator")
+        await give_ach(message.guild_id, person_id, message.channel, "anti_donator")
+        if person_id == BOT_ID and cat_type == "Ultimate" and int(amount) >= 5:
+            await give_ach(message.guild_id, message.user.id, message.channel, "rich")
+    else:
+        await message.response.send_message("no", ephemeral=True)
+
 @bot.slash_command(description="Get Cat")
 async def cat(message: discord.Interaction):
 	file = discord.File("cat.png", filename="cat.png")
@@ -267,6 +293,29 @@ async def bal(message: discord.Interaction):
 	file = discord.File("money.png", filename="money.png")
 	embed = discord.Embed(title="cat coins", color=0x6E593C).set_image(url="attachment://money.png")
 	await message.response.send_message(file=file, embed=embed)
+
+@bot.slash_command(description="Get a random cat")
+async def random(message: discord.Interaction): 
+	counter = 0
+	while True:
+		if counter == 11:
+			return
+		response = requests.get('https://aws.random.cat/meow')
+		try:
+			data = response.json()
+			await message.response.send_message(data['file'])
+			counter += 1
+			await give_ach(message.guild_id, message.user.id, message.channel, "randomizer")
+			return
+		except Exception:
+			pass
+		counter += 1
+
+@bot.slash_command(description="View your achievements")
+async def achs(message: discord.Interaction):
+    embedVar = discord.Embed(
+        title="Your achievements:", description=await get_ach_text(message.guild_id, message.user.id), color=0x6E593C
+    )
 
 @bot.message_command()
 async def pointLaugh(message: discord.Interaction, msg):
