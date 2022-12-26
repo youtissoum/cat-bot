@@ -1,5 +1,6 @@
 import nextcord as discord
 from nextcord.ext import commands, tasks
+import BotViews
 import os, sys, time, json, base64, requests
 from typing import Optional
 
@@ -312,10 +313,19 @@ async def random(message: discord.Interaction):
 		counter += 1
 
 @bot.slash_command(description="View your achievements")
-async def achs(message: discord.Interaction):
-    embedVar = discord.Embed(
-        title="Your achievements:", description=await get_ach_text(message.guild_id, message.user.id), color=0x6E593C
+async def achs(ctx: discord.Interaction):
+    achsView = BotViews.AchievementsView(
+        discord.Embed(
+            title="Your achievements:", description=await get_ach_text(ctx.guild_id, ctx.user.id), color=0x6E593C
+        )
     )
+    
+    message = await ctx.send(content="")
+    
+    async def callback(interaction: discord.Interaction):
+        await message.edit(content="test")
+
+    await achsView.init(message, callback)
 
 @bot.message_command()
 async def pointLaugh(message: discord.Interaction, msg):
